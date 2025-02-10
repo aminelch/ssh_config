@@ -1,0 +1,24 @@
+---
+- name: Validate SSH configuration
+  ansible.builtin.command: sshd -t
+  register: sshd_config_check
+  changed_when: false
+  ignore_errors: yes
+
+- name: Log SSH validation errors
+  ansible.builtin.lineinfile:
+    path: /var/log/ansible-ssh-config.log
+    create: yes
+    line: "ERROR: Invalid SSH configuration detected on {{ inventory_hostname }} - {{ sshd_config_check.stderr }}"
+  when: sshd_config_check.rc != 0
+
+- name: Display error message if SSH config is invalid
+  ansible.builtin.debug:
+    msg: "WARNING: SSH configuration is invalid on {{ inventory_hostname }}. Check /var/log/ansible-ssh-config.log for details."
+  when: sshd_config_check.rc != 0
+
+- name: Restart SSH if config is valid
+  ansible.builtin.service:
+    name: sshd
+    state: restarted
+  when: sshd_config_check.rc == 0
